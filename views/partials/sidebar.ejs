@@ -1,0 +1,80 @@
+<!-- Sidebar partial -->
+<nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
+    <div class="position-sticky pt-3 sidebar-sticky">
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link <%= page === 'dashboard' ? 'active' : '' %>" href="/dashboard">
+                    <i class="bi bi-speedometer2"></i> Dashboard
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link <%= page === 'manual' ? 'active' : '' %>" href="/manual">
+                    <i class="bi bi-pencil-square"></i> Manual Processing
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link <%= page === 'history' ? 'active' : '' %>" href="/history">
+                    <i class="bi bi-clock-history"></i> Processing History
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link <%= page === 'chat' ? 'active' : '' %>" href="/chat">
+                    <i class="bi bi-chat-dots"></i> Document Chat
+                </a>
+            </li>
+            
+            <!-- Divider -->
+            <li class="nav-item">
+                <hr class="dropdown-divider">
+            </li>
+            
+            <!-- Our new features -->
+            <li class="nav-item">
+                <a class="nav-link <%= page === 'consolidation' ? 'active' : '' %>" href="/consolidation">
+                    <i class="bi bi-intersect"></i> Metadata Consolidation
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link <%= page === 'summaries' ? 'active' : '' %>" href="/summaries">
+                    <i class="bi bi-file-earmark-text"></i> Document Summaries
+                </a>
+            </li>
+            
+            <!-- Divider -->
+            <li class="nav-item">
+                <hr class="dropdown-divider">
+            </li>
+            
+            <!-- Additional links -->
+            <li class="nav-item">
+                <a class="nav-link <%= page === 'settings' ? 'active' : '' %>" href="/settings">
+                    <i class="bi bi-gear"></i> Settings
+                </a>
+            </li>
+            
+            <% if (config.debug && config.debug === 'yes') { %>
+            <li class="nav-item">
+                <a class="nav-link <%= page === 'debug' ? 'active' : '' %>" href="/debug">
+                    <i class="bi bi-bug"></i> Debug
+                </a>
+            </li>
+            <% } %>
+        </ul>
+        
+        <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted text-uppercase">
+            <span>External Links</span>
+        </h6>
+        <ul class="nav flex-column mb-2">
+            <li class="nav-item">
+                <a class="nav-link" href="<%= config.paperless.apiUrl.replace('/api', '') %>" target="_blank">
+                    <i class="bi bi-box-arrow-up-right"></i> Paperless-ngx
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="https://github.com/clusterzx/paperless-ai-extended" target="_blank">
+                    <i class="bi bi-github"></i> GitHub
+                </a>
+            </li>
+        </ul>
+    </div>
+</nav>

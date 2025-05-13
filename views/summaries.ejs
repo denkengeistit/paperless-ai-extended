@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Summaries - Paperless-AI</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" type="image/png" href="/favicon.png">
+</head>
+<body>
+    <%- include('partials/navbar') %>
+
+    <div class="container-fluid">
+        <div class="row">
+            <%- include('partials/sidebar') %>
+
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">Document Summaries</h1>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="alert alert-info">
+                            <p><strong>About this tool:</strong> Generate AI summaries for your documents and save them to the Notes field in Paperless-ngx.</p>
+                            <p>The summaries are created using AI analysis of the document content and provide a concise overview of key information.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5>Generate Summary for Single Document</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group mb-3">
+                                    <label for="documentId">Document ID:</label>
+                                    <div class="input-group">
+                                        <input type="number" class="form-control" id="documentId" placeholder="Enter Document ID">
+                                        <button class="btn btn-primary" id="fetchDocumentBtn">Fetch Document</button>
+                                    </div>
+                                </div>
+                                <div id="documentDetails" class="d-none">
+                                    <div class="card mb-3">
+                                        <div class="card-body">
+                                            <h5 class="card-title" id="documentTitle"></h5>
+                                            <div class="row">
+                                                <div class="col-md-8">
+                                                    <p><strong>Correspondent:</strong> <span id="documentCorrespondent"></span></p>
+                                                    <p><strong>Document Type:</strong> <span id="documentType"></span></p>
+                                                    <p><strong>Created:</strong> <span id="documentCreated"></span></p>
+                                                    <div id="documentTags"></div>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <img id="documentThumbnail" class="img-fluid thumbnail-preview" src="" alt="Document Thumbnail">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-success" id="generateSummaryBtn">Generate Summary</button>
+                                </div>
+                                <div id="documentDetailsError" class="alert alert-danger d-none"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5>Batch Generate Summaries</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="form-group mb-3">
+                                    <label for="documentIdsBatch">Document IDs (comma separated):</label>
+                                    <textarea class="form-control" id="documentIdsBatch" rows="3" placeholder="e.g., 123, 456, 789"></textarea>
+                                </div>
+                                <button class="btn btn-primary" id="batchGenerateBtn">Generate Summaries</button>
+                                <div id="batchProgress" class="progress mt-3 d-none">
+                                    <div class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5>Summary Results</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="summaryResults"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Summary Result Template -->
+    <template id="summaryResultTemplate">
+        <div class="card mb-3 summary-result">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="result-title mb-0"></h5>
+                <span class="badge bg-success">Success</span>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <img class="result-thumbnail img-fluid thumbnail-preview" src="" alt="Document Thumbnail">
+                    </div>
+                    <div class="col-md-9">
+                        <h6>Generated Summary:</h6>
+                        <div class="result-summary"></div>
+                        <div class="mt-2">
+                            <a href="#" class="result-link" target="_blank">View in Paperless-ngx</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Batch Error Template -->
+    <template id="batchErrorTemplate">
+        <div class="card mb-3 summary-result">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="result-title mb-0"></h5>
+                <span class="badge bg-danger">Error</span>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-danger error-message"></div>
+            </div>
+        </div>
+    </template>
+
+    <script src="/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/jquery-3.7.0.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            const paperlessBaseUrl = localStorage.getItem('paperlessUrl') || '';
+            
+            // Fetch document details
+            $('#fetchDocumentBtn').on('click', function() {
+                const documentId = $('#documentId').val();
+                if (!documentId) {
+                    alert('Please enter a document ID');
+                    return;
+                }
+                
+                $(this).prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Fetching...');
+                $('#documentDetails').addClass('d-none');
+                $('#documentDetailsError').addClass('d-none');
+                
+                $.get(`/api/document/${documentId}`)
+                    .done(function(data) {
+                        $('#documentTitle').text(data.title || 'Untitled');
+                        $('#documentCorrespondent').text(data.correspondent_name || 'None');
+                        $('#documentType').text(data.document_type_name || 'None');
+                        $('#documentCreated').text(new Date(data.created).toLocaleDateString());
+                        
+                        // Display tags
+                        const $tags = $('#documentTags').empty();
+                        if (data.tags && data.tags.length > 0) {
+                            $tags.append('<p><strong>Tags:</strong> ');
+                            data.tags.forEach(function(tag, index) {
+                                $tags.append(`<span class="badge bg-primary me-1">${tag.name}</span>`);
+                            });
+                            $tags.append('</p>');
+                        } else {
+                            $tags.append('<p><strong>Tags:</strong> None</p>');
+                        }
+                        
+                        // Display thumbnail
+                        $('#documentThumbnail').attr('src', `/api/documents/${documentId}/thumb`);
+                        
+                        $('#documentDetails').removeClass('d-none');
+                    })
+                    .fail(function(error) {
+                        $('#documentDetailsError').text('Error fetching document: ' + (error.responseJSON?.error || 'Document not found')).removeClass('d-none');
+                    })
+                    .always(function() {
+                        $('#fetchDocumentBtn').prop('disabled', false).text('Fetch Document');
+                    });
+            });
+            
+            // Generate summary for a single document
+            $('#generateSummaryBtn').on('click', function() {
+                const documentId = $('#documentId').val();
+                if (!documentId) {
+                    alert('Please enter a document ID');
+                    return;
+                }
+                
+                $(this).prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Generating...');
+                
+                $.ajax({
+                    url: `/api/summary/generate/${documentId}`,
+                    type: 'POST',
+                    success: function(response) {
+                        displaySummaryResult(response);
+                    },
+                    error: function(error) {
+                        $('#summaryResults').prepend(`
+                            <div class="alert alert-danger">
+                                Error generating summary: ${error.responseJSON?.error || 'Failed to generate summary'}
+                            </div>
+                        `);
+                    },
+                    complete: function() {
+                        $('#generateSummaryBtn').prop('disabled', false).text('Generate Summary');
+                    }
+                });
+            });
+            
+            // Batch generate summaries
+            $('#batchGenerateBtn').on('click', function() {
+                const documentIdsText = $('#documentIdsBatch').val();
+                if (!documentIdsText) {
+                    alert('Please enter document IDs');
+                    return;
+                }
+                
+                // Parse document IDs
+                const documentIds = documentIdsText.split(',')
+                    .map(id => parseInt(id.trim()))
+                    .filter(id => !isNaN(id));
+                
+                if (documentIds.length === 0) {
+                    alert('No valid document IDs found');
+                    return;
+                }
+                
+                $(this).prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...');
+                $('#batchProgress').removeClass('d-none');
+                
+                $.ajax({
+                    url: '/api/summary/batch',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ documentIds }),
+                    success: function(response) {
+                        if (response.success) {
+                            $('#summaryResults').prepend(`
+                                <div class="alert alert-success mb-3">
+                                    Batch processing completed: ${response.processed} documents processed successfully, ${response.failed} failed.
+                                </div>
+                            `);
+                            
+                            // Display individual results
+                            if (response.details && response.details.length > 0) {
+                                response.details.forEach(function(result) {
+                                    if (result.success) {
+                                        displaySummaryResult(result);
+                                    } else {
+                                        displaySummaryError(result);
+                                    }
+                                });
+                            }
+                        } else {
+                            $('#summaryResults').prepend(`
+                                <div class="alert alert-danger">
+                                    Error in batch processing: ${response.error || 'Unknown error'}
+                                </div>
+                            `);
+                        }
+                    },
+                    error: function(error) {
+                        $('#summaryResults').prepend(`
+                            <div class="alert alert-danger">
+                                Error in batch processing: ${error.responseJSON?.error || 'Failed to process batch'}
+                            </div>
+                        `);
+                    },
+                    complete: function() {
+                        $('#batchGenerateBtn').prop('disabled', false).text('Generate Summaries');
+                        $('#batchProgress').addClass('d-none');
+                    }
+                });
+            });
+            
+            // Display a summary result
+            function displaySummaryResult(result) {
+                const template = document.getElementById('summaryResultTemplate');
+                const $result = $(template.content.cloneNode(true));
+                
+                $result.find('.result-title').text(result.title || `Document ${result.documentId}`);
+                $result.find('.result-summary').text(result.summary);
+                $result.find('.result-thumbnail').attr('src', `/api/documents/${result.documentId}/thumb`);
+                
+                // Link to Paperless-ngx
+                if (paperlessBaseUrl) {
+                    $result.find('.result-link').attr('href', `${paperlessBaseUrl}/documents/${result.documentId}`);
+                } else {
+                    $result.find('.result-link').text('Configure Paperless URL in settings to enable this link').addClass('text-muted').removeAttr('href');
+                }
+                
+                $('#summaryResults').prepend($result);
+            }
+            
+            // Display a summary error
+            function displaySummaryError(result) {
+                const template = document.getElementById('batchErrorTemplate');
+                const $result = $(template.content.cloneNode(true));
+                
+                $result.find('.result-title').text(`Document ${result.documentId}`);
+                $result.find('.error-message').text(result.error || 'Unknown error');
+                
+                $('#summaryResults').prepend($result);
+            }
+        });
+    </script>
+</body>
+</html>

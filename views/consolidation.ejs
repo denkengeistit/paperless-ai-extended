@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metadata Consolidation - Paperless-AI</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" type="image/png" href="/favicon.png">
+</head>
+<body>
+    <%- include('partials/navbar') %>
+
+    <div class="container-fluid">
+        <div class="row">
+            <%- include('partials/sidebar') %>
+
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">Metadata Consolidation Tools</h1>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="alert alert-info">
+                            <p><strong>About this tool:</strong> This tool helps you identify similar tags, correspondents, and document types in your Paperless-ngx system and 
+                            consolidate them to keep your metadata organized.</p>
+                            <p>The similarity detection uses the Levenshtein distance algorithm to find items with similar names.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <ul class="nav nav-tabs mb-4" id="consolidationTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="tags-tab" data-bs-toggle="tab" data-bs-target="#tags" type="button" role="tab" aria-controls="tags" aria-selected="true">Tags</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="correspondents-tab" data-bs-toggle="tab" data-bs-target="#correspondents" type="button" role="tab" aria-controls="correspondents" aria-selected="false">Correspondents</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="document-types-tab" data-bs-toggle="tab" data-bs-target="#document-types" type="button" role="tab" aria-controls="document-types" aria-selected="false">Document Types</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="consolidationTabContent">
+                    <!-- Tags Tab -->
+                    <div class="tab-pane fade show active" id="tags" role="tabpanel" aria-labelledby="tags-tab">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <span class="input-group-text">Similarity Threshold</span>
+                                    <input type="range" class="form-range" id="tagSimilarityThreshold" min="0.5" max="0.9" step="0.05" value="0.7">
+                                    <span class="input-group-text" id="tagThresholdValue">0.7</span>
+                                    <button class="btn btn-primary" id="findSimilarTagsBtn">Find Similar Tags</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="similarTagsResults" class="mt-4"></div>
+                    </div>
+
+                    <!-- Correspondents Tab -->
+                    <div class="tab-pane fade" id="correspondents" role="tabpanel" aria-labelledby="correspondents-tab">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <span class="input-group-text">Similarity Threshold</span>
+                                    <input type="range" class="form-range" id="correspondentSimilarityThreshold" min="0.5" max="0.9" step="0.05" value="0.7">
+                                    <span class="input-group-text" id="correspondentThresholdValue">0.7</span>
+                                    <button class="btn btn-primary" id="findSimilarCorrespondentsBtn">Find Similar Correspondents</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="similarCorrespondentsResults" class="mt-4"></div>
+                    </div>
+
+                    <!-- Document Types Tab -->
+                    <div class="tab-pane fade" id="document-types" role="tabpanel" aria-labelledby="document-types-tab">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <span class="input-group-text">Similarity Threshold</span>
+                                    <input type="range" class="form-range" id="documentTypeSimilarityThreshold" min="0.5" max="0.9" step="0.05" value="0.7">
+                                    <span class="input-group-text" id="documentTypeThresholdValue">0.7</span>
+                                    <button class="btn btn-primary" id="findSimilarDocumentTypesBtn">Find Similar Document Types</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="similarDocumentTypesResults" class="mt-4"></div>
+                    </div>
+                </div>
+
+                <!-- Templates for displaying consolidation results -->
+                <template id="noSimilaritiesTemplate">
+                    <div class="alert alert-info">
+                        No similar items found. Try lowering the similarity threshold.
+                    </div>
+                </template>
+
+                <template id="similarGroupTemplate">
+                    <div class="card mb-4 consolidation-group">
+                        <div class="card-header">
+                            <h5>Similar Items Found</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="similar-items-list"></div>
+                            <div class="form-group mt-3">
+                                <label><strong>Select Primary Item (to keep):</strong></label>
+                                <select class="form-select primary-item-select"></select>
+                            </div>
+                            <div class="mt-3">
+                                <button class="btn btn-warning consolidate-button">Consolidate Selected Items</button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </main>
+        </div>
+    </div>
+
+    <script src="/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/jquery-3.7.0.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            // Threshold sliders display value
+            $('#tagSimilarityThreshold').on('input', function() {
+                $('#tagThresholdValue').text($(this).val());
+            });
+            
+            $('#correspondentSimilarityThreshold').on('input', function() {
+                $('#correspondentThresholdValue').text($(this).val());
+            });
+            
+            $('#documentTypeSimilarityThreshold').on('input', function() {
+                $('#documentTypeThresholdValue').text($(this).val());
+            });
+
+            // Find similar tags
+            $('#findSimilarTagsBtn').on('click', function() {
+                const threshold = $('#tagSimilarityThreshold').val();
+                $('#similarTagsResults').html('<div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>');
+                
+                $.get(`/api/consolidation/similar-tags?threshold=${threshold}`)
+                    .done(function(data) {
+                        displaySimilarItems(data.similarGroups, '#similarTagsResults', 'tag');
+                    })
+                    .fail(function(error) {
+                        $('#similarTagsResults').html(`<div class="alert alert-danger">Error: ${error.responseJSON?.error || 'Failed to retrieve similar tags'}</div>`);
+                    });
+            });
+
+            // Find similar correspondents
+            $('#findSimilarCorrespondentsBtn').on('click', function() {
+                const threshold = $('#correspondentSimilarityThreshold').val();
+                $('#similarCorrespondentsResults').html('<div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>');
+                
+                $.get(`/api/consolidation/similar-correspondents?threshold=${threshold}`)
+                    .done(function(data) {
+                        displaySimilarItems(data.similarGroups, '#similarCorrespondentsResults', 'correspondent');
+                    })
+                    .fail(function(error) {
+                        $('#similarCorrespondentsResults').html(`<div class="alert alert-danger">Error: ${error.responseJSON?.error || 'Failed to retrieve similar correspondents'}</div>`);
+                    });
+            });
+
+            // Find similar document types
+            $('#findSimilarDocumentTypesBtn').on('click', function() {
+                const threshold = $('#documentTypeSimilarityThreshold').val();
+                $('#similarDocumentTypesResults').html('<div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>');
+                
+                $.get(`/api/consolidation/similar-document-types?threshold=${threshold}`)
+                    .done(function(data) {
+                        displaySimilarItems(data.similarGroups, '#similarDocumentTypesResults', 'documentType');
+                    })
+                    .fail(function(error) {
+                        $('#similarDocumentTypesResults').html(`<div class="alert alert-danger">Error: ${error.responseJSON?.error || 'Failed to retrieve similar document types'}</div>`);
+                    });
+            });
+
+            // Handle consolidation
+            $(document).on('click', '.consolidate-button', function() {
+                const $group = $(this).closest('.consolidation-group');
+                const type = $group.data('type');
+                const primaryId = $group.find('.primary-item-select').val();
+                const itemsToMerge = [];
+                
+                $group.find('.similar-item-checkbox:checked').each(function() {
+                    itemsToMerge.push($(this).val());
+                });
+                
+                if (itemsToMerge.length === 0) {
+                    alert('Please select at least one item to merge');
+                    return;
+                }
+                
+                const confirmMsg = `Are you sure you want to consolidate ${itemsToMerge.length} items into the primary item? This action cannot be undone.`;
+                if (!confirm(confirmMsg)) return;
+                
+                $group.find('.consolidate-button').prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...');
+                
+                let endpoint, data;
+                
+                switch(type) {
+                    case 'tag':
+                        endpoint = '/api/consolidation/consolidate-tags';
+                        data = { 
+                            primaryTagId: parseInt(primaryId), 
+                            tagsToMerge: itemsToMerge.map(id => parseInt(id))
+                        };
+                        break;
+                    case 'correspondent':
+                        endpoint = '/api/consolidation/consolidate-correspondents';
+                        data = { 
+                            primaryCorrespondentId: parseInt(primaryId), 
+                            correspondentsToMerge: itemsToMerge.map(id => parseInt(id))
+                        };
+                        break;
+                    case 'documentType':
+                        endpoint = '/api/consolidation/consolidate-document-types';
+                        data = { 
+                            primaryDocumentTypeId: parseInt(primaryId), 
+                            documentTypesToMerge: itemsToMerge.map(id => parseInt(id))
+                        };
+                        break;
+                }
+                
+                $.ajax({
+                    url: endpoint,
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(data),
+                    success: function(response) {
+                        $group.html(`
+                            <div class="alert alert-success">
+                                <h5>Consolidation completed successfully!</h5>
+                                <p>${response.updatedDocumentsCount} documents were updated.</p>
+                            </div>
+                        `);
+                    },
+                    error: function(error) {
+                        $group.find('.consolidate-button').prop('disabled', false).text('Consolidate Selected Items');
+                        $group.prepend(`
+                            <div class="alert alert-danger">
+                                Error: ${error.responseJSON?.error || 'Failed to consolidate items'}
+                            </div>
+                        `);
+                    }
+                });
+            });
+
+            // Display similar items
+            function displaySimilarItems(groups, container, type) {
+                const $container = $(container);
+                $container.empty();
+                
+                if (!groups || groups.length === 0) {
+                    const template = document.getElementById('noSimilaritiesTemplate');
+                    $container.append(template.content.cloneNode(true));
+                    return;
+                }
+                
+                groups.forEach(function(group, groupIndex) {
+                    const template = document.getElementById('similarGroupTemplate');
+                    const $group = $(template.content.cloneNode(true));
+                    
+                    $group.find('.card').attr('data-type', type).attr('data-group-index', groupIndex);
+                    
+                    const $itemsList = $group.find('.similar-items-list');
+                    const $select = $group.find('.primary-item-select');
+                    
+                    group.forEach(function(item) {
+                        const itemName = item.name;
+                        const itemId = item.id;
+                        
+                        $itemsList.append(`
+                            <div class="form-check">
+                                <input class="form-check-input similar-item-checkbox" type="checkbox" value="${itemId}" id="${type}-${itemId}-${groupIndex}">
+                                <label class="form-check-label" for="${type}-${itemId}-${groupIndex}">
+                                    ${itemName} (ID: ${itemId})
+                                </label>
+                            </div>
+                        `);
+                        
+                        $select.append(`<option value="${itemId}">${itemName} (ID: ${itemId})</option>`);
+                    });
+                    
+                    $container.append($group);
+                });
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!-- Navbar partial -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/dashboard">
+            <img src="/logo.webp" alt="Paperless-AI" height="30">
+            Paperless-AI Extended
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link <%= page === 'dashboard' ? 'active' : '' %>" href="/dashboard">Dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <%= page === 'manual' ? 'active' : '' %>" href="/manual">Manual Mode</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <%= page === 'history' ? 'active' : '' %>" href="/history">History</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <%= page === 'chat' ? 'active' : '' %>" href="/chat">Chat</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <%= page === 'consolidation' ? 'active' : '' %>" href="/consolidation">Consolidation</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <%= page === 'summaries' ? 'active' : '' %>" href="/summaries">Summaries</a>
+                </li>
+            </ul>
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link <%= page === 'settings' ? 'active' : '' %>" href="/settings">
+                        <i class="bi bi-gear"></i> Settings
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/logout">
+                        <i class="bi bi-box-arrow-right"></i> Logout
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+<div style="margin-top: 60px;"></div> <!-- Spacer to prevent content from being hidden under navbar -->
