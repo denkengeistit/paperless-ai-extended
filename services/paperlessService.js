@@ -11,7 +11,42 @@ class PaperlessService {
     this.tagCache = new Map();
     this.customFieldCache = new Map();
     this.lastTagRefresh = 0;
-    this.CACHE_LIFETIME = 3600000; // 1 hour instead of 3 seconds
+    this.CACHE_LIFETIME = 3600000; // 1 hour
+    this.tagCacheFile = path.join(process.cwd(), 'cache', 'tag-cache.json');
+    this.initializeCache();
+  }
+
+  async initializeCache() {
+    try {
+      // Create cache directory if it doesn't exist
+      await fs.mkdir(path.dirname(this.tagCacheFile), { recursive: true });
+      
+      // Try to load existing cache
+      try {
+        const cacheData = await fs.readFile(this.tagCacheFile, 'utf8');
+        const { tags, timestamp } = JSON.parse(cacheData);
+        this.tagCache = new Map(Object.entries(tags));
+        this.lastTagRefresh = timestamp;
+        console.log('[DEBUG] Loaded tag cache from disk');
+      } catch (err) {
+        console.log('[DEBUG] No existing tag cache found, will create new one');
+      }
+    } catch (error) {
+      console.error('[ERROR] Initializing tag cache:', error.message);
+    }
+  }
+
+  async saveCacheToDisk() {
+    try {
+      const cacheData = {
+        tags: Object.fromEntries(this.tagCache),
+        timestamp: this.lastTagRefresh
+      };
+      await fs.writeFile(this.tagCacheFile, JSON.stringify(cacheData, null, 2));
+      console.log('[DEBUG] Saved tag cache to disk');
+    } catch (error) {
+      console.error('[ERROR] Saving tag cache to disk:', error.message);
+    }
   }
 
   initialize() {
@@ -49,8 +84,6 @@ class PaperlessService {
     }
   }
 
-
-  // Aktualisiert den Tag-Cache, wenn er älter als CACHE_LIFETIME ist
   async ensureTagCache(forceRefresh = false) {
     const now = Date.now();
     if (forceRefresh || this.tagCache.size === 0 || (now - this.lastTagRefresh) > this.CACHE_LIFETIME) {
@@ -58,25 +91,33 @@ class PaperlessService {
     }
   }
 
-  // Lädt alle existierenden Tags
   async refreshTagCache() {
     try {
       console.log('[DEBUG] Refreshing tag cache...');
-      this.tagCache.clear();
+      const now = Date.now();
       let nextUrl = '/tags/';
       let totalTags = 0;
+      let updatedTags = 0;
       
       while (nextUrl) {
         const response = await this.client.get(nextUrl);
         response.data.results.forEach(tag => {
-          this.tagCache.set(tag.name.toLowerCase(), tag);
+          const normalizedName = tag.name.toLowerCase();
+          const existingTag = this.tagCache.get(normalizedName);
+          
+          // Only update if tag is new or has changed
+          if (!existingTag || existingTag.id !== tag.id || existingTag.name !== tag.name) {
+            this.tagCache.set(normalizedName, tag);
+            updatedTags++;
+          }
           totalTags++;
         });
         nextUrl = response.data.next;
       }
       
-      this.lastTagRefresh = Date.now();
-      console.log(`[DEBUG] Tag cache refreshed. Found ${totalTags} tags. Cache will be valid for ${this.CACHE_LIFETIME/3600000} hours.`);
+      this.lastTagRefresh = now;
+      await this.saveCacheToDisk();
+      console.log(`[DEBUG] Tag cache refreshed. Found ${totalTags} tags, updated ${updatedTags} tags. Cache will be valid for ${this.CACHE_LIFETIME/3600000} hours.`);
     } catch (error) {
       console.error('[ERROR] refreshing tag cache:', error.message);
       throw error;
@@ -189,22 +230,21 @@ class PaperlessService {
     }
   }
 
-
   async findExistingTag(tagName) {
     const normalizedName = tagName.toLowerCase();
     
-    // 1. Zuerst im Cache suchen
+    // First check cache
     const cachedTag = this.tagCache.get(normalizedName);
     if (cachedTag) {
       console.log(`[DEBUG] Found tag "${tagName}" in cache with ID ${cachedTag.id}`);
       return cachedTag;
     }
 
-    // 2. Direkte API-Suche
+    // If not in cache, try API search
     try {
       const response = await this.client.get('/tags/', {
         params: {
-          name__iexact: normalizedName  // Case-insensitive exact match
+          name__iexact: normalizedName
         }
       });
 
@@ -212,6 +252,7 @@ class PaperlessService {
         const foundTag = response.data.results[0];
         console.log(`[DEBUG] Found existing tag "${tagName}" via API with ID ${foundTag.id}`);
         this.tagCache.set(normalizedName, foundTag);
+        await this.saveCacheToDisk();
         return foundTag;
       }
     } catch (error) {
@@ -225,25 +266,21 @@ class PaperlessService {
     const normalizedName = tagName.toLowerCase();
     
     try {
-      // Versuche zuerst, den Tag zu erstellen
       const response = await this.client.post('/tags/', { name: tagName });
       const newTag = response.data;
       console.log(`[DEBUG] Successfully created tag "${tagName}" with ID ${newTag.id}`);
       this.tagCache.set(normalizedName, newTag);
+      await this.saveCacheToDisk();
       return newTag;
     } catch (error) {
       if (error.response?.status === 400) {
-        // Bei einem 400er Fehler könnte der Tag bereits existieren
-        // Aktualisiere den Cache und suche erneut
-        await this.ensureTagCache(true); // Force refresh when we get a 400 error
-        
-        // Suche nochmal nach dem Tag
+        await this.ensureTagCache(true);
         const existingTag = await this.findExistingTag(tagName);
         if (existingTag) {
           return existingTag;
         }
       }
-      throw error; // Wenn wir den Tag nicht finden konnten, werfen wir den Fehler weiter
+      throw error;
     }
   }
 
