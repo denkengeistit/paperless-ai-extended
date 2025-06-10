@@ -13,6 +13,8 @@ class PaperlessService {
     this.lastTagRefresh = 0;
     this.CACHE_LIFETIME = 3600000; // 1 hour
     this.tagCacheFile = path.join(process.cwd(), 'cache', 'tag-cache.json');
+    this.lastRequestTime = 0;
+    this.MIN_REQUEST_INTERVAL = 100; // Minimum 100ms between requests
     this.initializeCache();
   }
 
@@ -91,6 +93,43 @@ class PaperlessService {
     }
   }
 
+  async waitForRateLimit() {
+    const now = Date.now();
+    const timeSinceLastRequest = now - this.lastRequestTime;
+    if (timeSinceLastRequest < this.MIN_REQUEST_INTERVAL) {
+      await new Promise(resolve => setTimeout(resolve, this.MIN_REQUEST_INTERVAL - timeSinceLastRequest));
+    }
+    this.lastRequestTime = Date.now();
+  }
+
+  async makeRequest(method, url, data = null) {
+    let retries = 3;
+    while (retries > 0) {
+      try {
+        await this.waitForRateLimit();
+        const config = {
+          method,
+          url,
+          ...(data && { data })
+        };
+        const response = await this.client(config);
+        return response;
+      } catch (error) {
+        retries--;
+        if (retries === 0) throw error;
+        
+        // If it's a rate limit error (429) or server error (5xx), wait longer
+        if (error.response?.status === 429 || (error.response?.status >= 500 && error.response?.status < 600)) {
+          console.log(`[DEBUG] Rate limit or server error, waiting before retry. Status: ${error.response?.status}`);
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+        } else {
+          console.log(`[DEBUG] Request failed, retrying. Status: ${error.response?.status}`);
+          await new Promise(resolve => setTimeout(resolve, 100)); // Wait 100ms
+        }
+      }
+    }
+  }
+
   async refreshTagCache() {
     try {
       console.log('[DEBUG] Refreshing tag cache...');
@@ -101,12 +140,11 @@ class PaperlessService {
       
       while (nextUrl) {
         try {
-          const response = await this.client.get(nextUrl);
+          const response = await this.makeRequest('get', nextUrl);
           response.data.results.forEach(tag => {
             const normalizedName = tag.name.toLowerCase();
             const existingTag = this.tagCache.get(normalizedName);
             
-            // Only update if tag is new or has changed
             if (!existingTag || existingTag.id !== tag.id || existingTag.name !== tag.name) {
               this.tagCache.set(normalizedName, tag);
               updatedTags++;
@@ -248,16 +286,14 @@ class PaperlessService {
   async findExistingTag(tagName) {
     const normalizedName = tagName.toLowerCase();
     
-    // First check cache
     const cachedTag = this.tagCache.get(normalizedName);
     if (cachedTag) {
       console.log(`[DEBUG] Found tag "${tagName}" in cache with ID ${cachedTag.id}`);
       return cachedTag;
     }
 
-    // If not in cache, try API search
     try {
-      const response = await this.client.get('/tags/', {
+      const response = await this.makeRequest('get', '/tags/', {
         params: {
           name__iexact: normalizedName
         }
@@ -287,7 +323,7 @@ class PaperlessService {
     
     try {
       console.log(`[DEBUG] Attempting to create tag "${tagName}"`);
-      const response = await this.client.post('/tags/', { name: tagName });
+      const response = await this.makeRequest('post', '/tags/', { name: tagName });
       const newTag = response.data;
       console.log(`[DEBUG] Successfully created tag "${tagName}" with ID ${newTag.id}`);
       this.tagCache.set(normalizedName, newTag);
