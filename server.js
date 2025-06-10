@@ -414,7 +414,16 @@ async function scanDocuments() {
   }
 }
 
-// Routes
+// Add summaries route
+app.get('/summaries', (req, res) => {
+    res.render('summaries', {
+        page: 'summaries',
+        config: config,
+        user: req.user
+    });
+});
+
+// Register routes
 app.use('/', setupRoutes);
 
 /**
@@ -511,15 +520,6 @@ app.get('/health', async (req, res) => {
       message: error.message 
     });
   }
-});
-
-// Add summaries route
-app.get('/summaries', (req, res) => {
-    res.render('summaries', {
-        page: 'summaries',
-        config: config,
-        user: req.user
-    });
 });
 
 // Error handler
