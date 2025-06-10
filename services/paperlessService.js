@@ -100,26 +100,41 @@ class PaperlessService {
       let updatedTags = 0;
       
       while (nextUrl) {
-        const response = await this.client.get(nextUrl);
-        response.data.results.forEach(tag => {
-          const normalizedName = tag.name.toLowerCase();
-          const existingTag = this.tagCache.get(normalizedName);
-          
-          // Only update if tag is new or has changed
-          if (!existingTag || existingTag.id !== tag.id || existingTag.name !== tag.name) {
-            this.tagCache.set(normalizedName, tag);
-            updatedTags++;
-          }
-          totalTags++;
-        });
-        nextUrl = response.data.next;
+        try {
+          const response = await this.client.get(nextUrl);
+          response.data.results.forEach(tag => {
+            const normalizedName = tag.name.toLowerCase();
+            const existingTag = this.tagCache.get(normalizedName);
+            
+            // Only update if tag is new or has changed
+            if (!existingTag || existingTag.id !== tag.id || existingTag.name !== tag.name) {
+              this.tagCache.set(normalizedName, tag);
+              updatedTags++;
+            }
+            totalTags++;
+          });
+          nextUrl = response.data.next;
+        } catch (error) {
+          console.error(`[ERROR] Failed to fetch tags from ${nextUrl}:`, {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data,
+            message: error.message
+          });
+          throw error;
+        }
       }
       
       this.lastTagRefresh = now;
       await this.saveCacheToDisk();
       console.log(`[DEBUG] Tag cache refreshed. Found ${totalTags} tags, updated ${updatedTags} tags. Cache will be valid for ${this.CACHE_LIFETIME/3600000} hours.`);
     } catch (error) {
-      console.error('[ERROR] refreshing tag cache:', error.message);
+      console.error('[ERROR] refreshing tag cache:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
       throw error;
     }
   }
@@ -256,7 +271,12 @@ class PaperlessService {
         return foundTag;
       }
     } catch (error) {
-      console.warn(`[ERROR] searching for tag "${tagName}":`, error.message);
+      console.error(`[ERROR] searching for tag "${tagName}":`, {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
     }
 
     return null;
@@ -266,6 +286,7 @@ class PaperlessService {
     const normalizedName = tagName.toLowerCase();
     
     try {
+      console.log(`[DEBUG] Attempting to create tag "${tagName}"`);
       const response = await this.client.post('/tags/', { name: tagName });
       const newTag = response.data;
       console.log(`[DEBUG] Successfully created tag "${tagName}" with ID ${newTag.id}`);
@@ -273,7 +294,15 @@ class PaperlessService {
       await this.saveCacheToDisk();
       return newTag;
     } catch (error) {
+      console.error(`[ERROR] creating tag "${tagName}":`, {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data
+      });
+      
       if (error.response?.status === 400) {
+        console.log(`[DEBUG] Got 400 error for tag "${tagName}", attempting to refresh cache and find existing tag`);
         await this.ensureTagCache(true);
         const existingTag = await this.findExistingTag(tagName);
         if (existingTag) {
