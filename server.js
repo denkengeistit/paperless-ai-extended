@@ -513,6 +513,15 @@ app.get('/health', async (req, res) => {
   }
 });
 
+// Add summaries route
+app.get('/summaries', (req, res) => {
+    res.render('summaries', {
+        page: 'summaries',
+        config: config,
+        user: req.user
+    });
+});
+
 // Error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
