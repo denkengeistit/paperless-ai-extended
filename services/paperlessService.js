@@ -11,7 +11,7 @@ class PaperlessService {
     this.tagCache = new Map();
     this.customFieldCache = new Map();
     this.lastTagRefresh = 0;
-    this.CACHE_LIFETIME = 3000; // 3 Sekunden
+    this.CACHE_LIFETIME = 3600000; // 1 hour instead of 3 seconds
   }
 
   initialize() {
@@ -51,9 +51,9 @@ class PaperlessService {
 
 
   // Aktualisiert den Tag-Cache, wenn er älter als CACHE_LIFETIME ist
-  async ensureTagCache() {
+  async ensureTagCache(forceRefresh = false) {
     const now = Date.now();
-    if (this.tagCache.size === 0 || (now - this.lastTagRefresh) > this.CACHE_LIFETIME) {
+    if (forceRefresh || this.tagCache.size === 0 || (now - this.lastTagRefresh) > this.CACHE_LIFETIME) {
       await this.refreshTagCache();
     }
   }
@@ -64,15 +64,19 @@ class PaperlessService {
       console.log('[DEBUG] Refreshing tag cache...');
       this.tagCache.clear();
       let nextUrl = '/tags/';
+      let totalTags = 0;
+      
       while (nextUrl) {
         const response = await this.client.get(nextUrl);
         response.data.results.forEach(tag => {
           this.tagCache.set(tag.name.toLowerCase(), tag);
+          totalTags++;
         });
         nextUrl = response.data.next;
       }
+      
       this.lastTagRefresh = Date.now();
-      console.log(`[DEBUG] Tag cache refreshed. Found ${this.tagCache.size} tags.`);
+      console.log(`[DEBUG] Tag cache refreshed. Found ${totalTags} tags. Cache will be valid for ${this.CACHE_LIFETIME/3600000} hours.`);
     } catch (error) {
       console.error('[ERROR] refreshing tag cache:', error.message);
       throw error;
@@ -231,7 +235,7 @@ class PaperlessService {
       if (error.response?.status === 400) {
         // Bei einem 400er Fehler könnte der Tag bereits existieren
         // Aktualisiere den Cache und suche erneut
-        await this.refreshTagCache();
+        await this.ensureTagCache(true); // Force refresh when we get a 400 error
         
         // Suche nochmal nach dem Tag
         const existingTag = await this.findExistingTag(tagName);
