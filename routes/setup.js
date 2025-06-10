@@ -4823,4 +4823,29 @@ router.get('/summaries', authenticateJWT, async (req, res) => {
   }
 });
 
+// Test endpoint for summary service
+router.post('/test-summary', async (req, res) => {
+    try {
+        const { documentId } = req.body;
+        
+        if (!documentId) {
+            return res.status(400).json({
+                success: false,
+                error: 'Document ID is required'
+            });
+        }
+
+        console.log(`[DEBUG] Testing summary generation for document ${documentId}`);
+        const result = await summaryService.generateAndSaveSummary(documentId);
+        
+        res.json(result);
+    } catch (error) {
+        console.error('[ERROR] in test-summary endpoint:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
 module.exports = router;

@@ -3,9 +3,17 @@ const paperlessService = require('./paperlessService');
 const AIServiceFactory = require('./aiServiceFactory');
 const config = require('../config/config');
 
+// Configuration constants
+const MAX_CONTENT_LENGTH = 100000; // Maximum characters to process
+const MAX_SUMMARY_LENGTH = 1000; // Maximum summary length
+const MAX_NOTES_LENGTH = 10000; // Maximum notes length
+const MAX_RETRIES = 3; // Maximum initialization retries
+const RETRY_DELAY = 1000; // Delay between retries in ms
+
 class SummaryService {
   constructor() {
     this.aiService = null;
+    this.initializationAttempts = 0;
   }
 
   /**
@@ -13,12 +21,40 @@ class SummaryService {
    */
   async initialize() {
     try {
+      if (this.initializationAttempts >= MAX_RETRIES) {
+        throw new Error('Maximum initialization attempts reached');
+      }
+
       this.aiService = await AIServiceFactory.getAIService();
+      this.initializationAttempts = 0;
       return true;
     } catch (error) {
-      console.error('[ERROR] initializing SummaryService:', error.message);
+      this.initializationAttempts++;
+      console.error(`[ERROR] initializing SummaryService (attempt ${this.initializationAttempts}):`, error.message);
+      
+      if (this.initializationAttempts < MAX_RETRIES) {
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+        return this.initialize();
+      }
+      
       return false;
     }
+  }
+
+  /**
+   * Validate document content
+   * @param {string} content - Document content to validate
+   * @returns {boolean} - Whether content is valid
+   */
+  validateContent(content) {
+    if (!content || typeof content !== 'string') {
+      return false;
+    }
+    if (content.length > MAX_CONTENT_LENGTH) {
+      console.warn(`[WARN] Document content exceeds maximum length (${content.length} > ${MAX_CONTENT_LENGTH})`);
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -30,15 +66,21 @@ class SummaryService {
     try {
       // Initialize if not already initialized
       if (!this.aiService) {
-        await this.initialize();
+        const initialized = await this.initialize();
+        if (!initialized) {
+          return {
+            success: false,
+            error: 'Failed to initialize AI service'
+          };
+        }
       }
 
       // Get document content
       const documentContent = await paperlessService.getDocumentContent(documentId);
-      if (!documentContent) {
+      if (!this.validateContent(documentContent)) {
         return {
           success: false,
-          error: 'Document content could not be retrieved'
+          error: 'Invalid or missing document content'
         };
       }
 
@@ -53,6 +95,12 @@ class SummaryService {
 
       // Generate summary
       const summary = await this.generateSummary(documentContent, document.title);
+      if (!summary || summary.length > MAX_SUMMARY_LENGTH) {
+        return {
+          success: false,
+          error: 'Generated summary is invalid or too long'
+        };
+      }
 
       // Save summary to PaperlessNGX Notes
       const result = await this.saveToNotes(documentId, summary);
@@ -86,7 +134,8 @@ class SummaryService {
       const prompt = `
 Please provide a concise summary of the following document titled "${documentTitle}".
 Focus on key information such as dates, amounts, parties involved, and main points.
-The summary should be comprehensive while remaining under 1000 characters.
+The summary should be comprehensive while remaining under ${MAX_SUMMARY_LENGTH} characters.
+Format the response as plain text only.
 
 DOCUMENT CONTENT:
 ${documentContent}
@@ -99,7 +148,12 @@ SUMMARY:`;
         throw new Error('Failed to generate summary from AI service');
       }
 
-      return analysis.trim();
+      const summary = analysis.trim();
+      if (summary.length > MAX_SUMMARY_LENGTH) {
+        return summary.substring(0, MAX_SUMMARY_LENGTH) + '...';
+      }
+
+      return summary;
     } catch (error) {
       console.error('[ERROR] generating summary:', error.message);
       throw error;
@@ -127,6 +181,14 @@ SUMMARY:`;
         updatedNotes = `${document.notes}\n\n${formattedSummary}`;
       } else {
         updatedNotes = formattedSummary;
+      }
+
+      // Check if notes would exceed maximum length
+      if (updatedNotes.length > MAX_NOTES_LENGTH) {
+        // Keep only the most recent summaries
+        const summaries = updatedNotes.split('--- AI Generated Summary');
+        const recentSummaries = summaries.slice(-3); // Keep last 3 summaries
+        updatedNotes = recentSummaries.join('--- AI Generated Summary');
       }
       
       // Update document with new notes
