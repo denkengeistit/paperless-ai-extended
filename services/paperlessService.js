@@ -1,7 +1,7 @@
 // services/paperlessService.js
 const axios = require('axios');
 const config = require('../config/config');
-const fs = require('fs');
+const fs = require('fs').promises;
 const path = require('path');
 const { parse, isValid, parseISO } = require('date-fns');
 
