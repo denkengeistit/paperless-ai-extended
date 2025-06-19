@@ -1570,10 +1570,30 @@ async function processDocument(doc, existingTags, existingCorrespondentList, own
   }else{
     analysis = await aiService.analyzeDocument(content, existingTags, existingCorrespondentList, doc.id);
   }
-  console.log('Repsonse from AI service:', analysis);
+  console.log('Response from AI service:', analysis);
+  
+  // Handle AI analysis errors
   if (analysis.error) {
-    throw new Error(`[ERROR] Document analysis failed: ${analysis.error}`);
+    console.warn(`[WARN] AI analysis error for document ${doc.id}: ${analysis.error}`);
+    
+    // If the error is about missing tags, provide a default tag
+    if (analysis.error.includes('tags array must contain at least one tag')) {
+      console.log('[DEBUG] Providing default tag for document');
+      analysis.document = {
+        ...analysis.document,
+        tags: ['Uncategorized'],
+        correspondent: analysis.document.correspondent || 'Unknown',
+        title: analysis.document.title || doc.title,
+        document_date: analysis.document.document_date || '1990-01-01',
+        language: analysis.document.language || 'en',
+        document_type: analysis.document.document_type || 'Document'
+      };
+      analysis.error = null;
+    } else {
+      throw new Error(`[ERROR] Document analysis failed: ${analysis.error}`);
+    }
   }
+  
   await documentModel.setProcessingStatus(doc.id, doc.title, 'complete');
   return { analysis, originalData };
 }
@@ -1607,7 +1627,62 @@ async function buildUpdateData(analysis, doc) {
   }
 
   // Add created date regardless of settings as it's a core field
-  updateData.created = analysis.document.document_date || doc.created;
+  let documentDate = analysis.document.document_date || doc.created;
+  
+  // Normalize date format
+  try {
+    // Handle various date formats
+    if (documentDate) {
+      // Skip if already in YYYY-MM-DD format
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(documentDate)) {
+        // Try to parse various date formats
+        let parsedDate;
+        
+        // Handle DD.MM.YYYY format
+        if (/^\d{2}\.\d{2}\.\d{4}$/.test(documentDate)) {
+          const [day, month, year] = documentDate.split('.');
+          parsedDate = new Date(year, month - 1, day);
+        }
+        // Handle DD-MM-YYYY format
+        else if (/^\d{2}-\d{2}-\d{4}$/.test(documentDate)) {
+          const [day, month, year] = documentDate.split('-');
+          parsedDate = new Date(year, month - 1, day);
+        }
+        // Handle YYYY_MM_DD format
+        else if (/^\d{4}_\d{2}_\d{2}$/.test(documentDate)) {
+          const [year, month, day] = documentDate.split('_');
+          parsedDate = new Date(year, month - 1, day);
+        }
+        // Handle YYYY.MM.DD format
+        else if (/^\d{4}\.\d{2}\.\d{2}$/.test(documentDate)) {
+          const [year, month, day] = documentDate.split('.');
+          parsedDate = new Date(year, month - 1, day);
+        }
+        // Handle YYYY/MM/DD format
+        else if (/^\d{4}\/\d{2}\/\d{2}$/.test(documentDate)) {
+          const [year, month, day] = documentDate.split('/');
+          parsedDate = new Date(year, month - 1, day);
+        }
+        
+        if (parsedDate && !isNaN(parsedDate.getTime())) {
+          // Format as YYYY-MM-DD
+          documentDate = parsedDate.toISOString().split('T')[0];
+        } else {
+          // If date parsing fails, use a default date
+          console.warn(`[WARN] Could not parse date: ${documentDate}, using default date`);
+          documentDate = '1990-01-01';
+        }
+      }
+    } else {
+      // If no date provided, use default
+      documentDate = '1990-01-01';
+    }
+  } catch (error) {
+    console.warn(`[WARN] Error normalizing date: ${error.message}, using default date`);
+    documentDate = '1990-01-01';
+  }
+  
+  updateData.created = documentDate;
 
   // Only process document type if document type classification is activated
   if (config.limitFunctions?.activateDocumentType !== 'no' && analysis.document.document_type) {
@@ -4841,6 +4916,46 @@ router.post('/test-summary', async (req, res) => {
         res.json(result);
     } catch (error) {
         console.error('[ERROR] in test-summary endpoint:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// API endpoint to generate summary for a single document
+router.post('/api/summary/generate/:documentId', async (req, res) => {
+    try {
+        const { documentId } = req.params;
+        console.log(`[DEBUG] Generating summary for document ${documentId}`);
+        
+        const result = await summaryService.generateAndSaveSummary(documentId);
+        res.json(result);
+    } catch (error) {
+        console.error('[ERROR] generating summary:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+// API endpoint for batch summary generation
+router.post('/api/summary/batch', async (req, res) => {
+    try {
+        const { documentIds } = req.body;
+        if (!Array.isArray(documentIds) || documentIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Document IDs array is required'
+            });
+        }
+
+        console.log(`[DEBUG] Batch processing ${documentIds.length} documents for summaries`);
+        const result = await summaryService.batchProcessSummaries(documentIds);
+        res.json(result);
+    } catch (error) {
+        console.error('[ERROR] in batch summary generation:', error);
         res.status(500).json({
             success: false,
             error: error.message

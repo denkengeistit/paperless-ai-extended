@@ -206,17 +206,45 @@ class OpenAIService {
       let parsedResponse;
       try {
         parsedResponse = JSON.parse(jsonContent);
-        //write to file and append to the file (txt)
-        fs.appendFile('./logs/response.txt', jsonContent, (err) => {
-          if (err) throw err;
-        });
+        console.log('[DEBUG] Raw AI response:', jsonContent);
+        console.log('[DEBUG] Parsed response:', parsedResponse);
       } catch (error) {
         console.error('Failed to parse JSON response:', error);
         throw new Error('Invalid JSON response from API');
       }
 
-      if (!parsedResponse || !Array.isArray(parsedResponse.tags) || typeof parsedResponse.correspondent !== 'string') {
-        throw new Error('Invalid response structure: missing tags array or correspondent string');
+      // Validate response structure
+      if (!parsedResponse) {
+        throw new Error('Invalid response: empty or null response');
+      }
+      
+      if (!Array.isArray(parsedResponse.tags)) {
+        throw new Error('Invalid response: tags must be an array');
+      }
+      
+      if (parsedResponse.tags.length === 0) {
+        throw new Error('Invalid response: tags array must contain at least one tag');
+      }
+      
+      if (typeof parsedResponse.correspondent !== 'string' || !parsedResponse.correspondent.trim()) {
+        throw new Error('Invalid response: correspondent must be a non-empty string');
+      }
+      
+      if (typeof parsedResponse.title !== 'string' || !parsedResponse.title.trim()) {
+        throw new Error('Invalid response: title must be a non-empty string');
+      }
+      
+      if (typeof parsedResponse.document_type !== 'string' || !parsedResponse.document_type.trim()) {
+        throw new Error('Invalid response: document_type must be a non-empty string');
+      }
+      
+      console.log('[DEBUG] Document date from AI:', parsedResponse.document_date);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(parsedResponse.document_date)) {
+        throw new Error(`Invalid response: document_date must be in YYYY-MM-DD format, got: ${parsedResponse.document_date}`);
+      }
+      
+      if (!/^[a-z]{2}(-[A-Z]{2})?$/.test(parsedResponse.language)) {
+        throw new Error('Invalid response: language must be a valid language code (e.g., en, de, es)');
       }
 
       return { 
@@ -333,8 +361,36 @@ class OpenAIService {
       }
 
       // Validate response structure
-      if (!parsedResponse || !Array.isArray(parsedResponse.tags) || typeof parsedResponse.correspondent !== 'string') {
-        throw new Error('Invalid response structure: missing tags array or correspondent string');
+      if (!parsedResponse) {
+        throw new Error('Invalid response: empty or null response');
+      }
+      
+      if (!Array.isArray(parsedResponse.tags)) {
+        throw new Error('Invalid response: tags must be an array');
+      }
+      
+      if (parsedResponse.tags.length === 0) {
+        throw new Error('Invalid response: tags array must contain at least one tag');
+      }
+      
+      if (typeof parsedResponse.correspondent !== 'string' || !parsedResponse.correspondent.trim()) {
+        throw new Error('Invalid response: correspondent must be a non-empty string');
+      }
+      
+      if (typeof parsedResponse.title !== 'string' || !parsedResponse.title.trim()) {
+        throw new Error('Invalid response: title must be a non-empty string');
+      }
+      
+      if (typeof parsedResponse.document_type !== 'string' || !parsedResponse.document_type.trim()) {
+        throw new Error('Invalid response: document_type must be a non-empty string');
+      }
+      
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(parsedResponse.document_date)) {
+        throw new Error('Invalid response: document_date must be in YYYY-MM-DD format');
+      }
+      
+      if (!/^[a-z]{2}(-[A-Z]{2})?$/.test(parsedResponse.language)) {
+        throw new Error('Invalid response: language must be a valid language code (e.g., en, de, es)');
       }
 
       return { 

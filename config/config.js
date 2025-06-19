@@ -74,24 +74,43 @@ module.exports = {
   Only use the tags from the list and try to find the best fitting tags.
   You do not ask for additional information, you only use the information given in the document.
   
-  Return the result EXCLUSIVELY as a JSON object. The Tags and Title MUST be in the language that is used in the document.:
+  IMPORTANT: You MUST return a valid JSON object with the following structure. The response MUST include ALL fields:
   {
-    "title": "xxxxx",
-    "correspondent": "xxxxxxxx",
-    "tags": ["Tag1", "Tag2", "Tag3", "Tag4"],
+    "title": "string - document title",
+    "correspondent": "string - sender name",
+    "tags": ["array of strings - at least one tag"],
     "document_date": "YYYY-MM-DD",
     "language": "en/de/es/..."
-  }`,
-  mustHavePrompt: `  Return the result EXCLUSIVELY as a JSON object. The Tags, Title and Document_Type MUST be in the language that is used in the document.:
-  IMPORTANT: The custom_fields are optional and can be left out if not needed, only try to fill out the values if you find a matching information in the document.
-  Do not change the value of field_name, only fill out the values. If the field is about money only add the number without currency and always use a . for decimal places.
+  }
+  
+  Validation rules:
+  1. The tags array MUST contain at least one tag
+  2. The correspondent MUST be a non-empty string
+  3. The title MUST be a non-empty string
+  4. The document_date MUST be in YYYY-MM-DD format
+  5. The language MUST be a valid language code`,
+  mustHavePrompt: `You are a document analysis AI. Analyze the document and extract structured information.
+  
+  IMPORTANT: You MUST return a valid JSON object with the following structure. The response MUST include ALL fields:
   {
-    "title": "xxxxx",
-    "correspondent": "xxxxxxxx",
-    "tags": ["Tag1", "Tag2", "Tag3", "Tag4"],
-    "document_type": "Invoice/Contract/...",
+    "title": "string - document title",
+    "correspondent": "string - sender name",
+    "tags": ["array of strings - at least one tag"],
+    "document_type": "string - document type",
     "document_date": "YYYY-MM-DD",
-    "language": "en/de/es/...",
-    %CUSTOMFIELDS%
-  }`,
+    "language": "en/de/es/..."
+  }
+  
+  Validation rules:
+  1. The tags array MUST contain at least one tag
+  2. The correspondent MUST be a non-empty string
+  3. The title MUST be a non-empty string
+  4. The document_type MUST be a non-empty string
+  5. The document_date MUST be in YYYY-MM-DD format
+  6. The language MUST be a valid language code
+  
+  The custom_fields are optional and can be left out if not needed. Only fill out values if you find matching information in the document.
+  Do not change the value of field_name, only fill out the values. If the field is about money only add the number without currency and always use a . for decimal places.
+  
+  All text fields (title, correspondent, tags, document_type) MUST be in the language that is used in the document.`,
 };

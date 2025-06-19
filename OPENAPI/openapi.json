@@ -2165,16 +2165,6 @@
                     "description": "Custom system prompt for document analysis",
                     "example": "Extract key information from the following document..."
                   },
-                  "tokenLimit": {
-                    "type": "integer",
-                    "description": "The maximum number of tokens the AI can handle",
-                    "example": 128000
-                  },
-                  "responseTokens": {
-                    "type": "integer",
-                    "description": "The approximate amount of tokens required for the response",
-                    "example": 1000
-                  },
                   "showTags": {
                     "type": "boolean",
                     "description": "Whether to show tags in the UI",
@@ -3054,16 +3044,6 @@
                     "description": "Model name for custom LLM provider",
                     "example": "custom-model"
                   },
-                  "tokenLimit": {
-                    "type": "integer",
-                    "description": "The maximum number of tokens the AI can handle",
-                    "example": 128000
-                  },
-                  "responseTokens": {
-                    "type": "integer",
-                    "description": "The approximate amount of tokens required for the response",
-                    "example": 1000
-                  },
                   "scanInterval": {
                     "type": "number",
                     "description": "Interval in minutes for scanning new documents",
@@ -3078,6 +3058,16 @@
                     "type": "boolean",
                     "description": "Whether to show tags in the UI",
                     "example": true
+                  },
+                  "tokenLimit": {
+                    "type": "integer",
+                    "description": "The maximum number of tokens th AI can handle",
+                    "example": 128000
+                  },
+                  "responseTokens": {
+                    "type": "integer",
+                    "description": "The approx. amount of tokens required for the response",
+                    "example": 1000
                   },
                   "tags": {
                     "type": "string",
@@ -3862,6 +3852,564 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/consolidation/similar-tags": {
+      "get": {
+        "summary": "Find similar tags in the system",
+        "description": "Find similar tags based on name similarity to help with tag consolidation.\nThis endpoint uses Levenshtein distance algorithm to identify potentially duplicated tags.\n",
+        "tags": [
+          "Metadata",
+          "API"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "threshold",
+            "schema": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.7
+            },
+            "description": "Similarity threshold (0-1), higher values require greater similarity"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of similar tag groups",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "similarGroups": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/components/schemas/Tag"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/api/consolidation/similar-correspondents": {
+      "get": {
+        "summary": "Find similar correspondents in the system",
+        "description": "Find similar correspondents based on name similarity to help with correspondent consolidation.\nThis endpoint uses Levenshtein distance algorithm to identify potentially duplicated correspondents.\n",
+        "tags": [
+          "Metadata",
+          "API"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "threshold",
+            "schema": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.7
+            },
+            "description": "Similarity threshold (0-1), higher values require greater similarity"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of similar correspondent groups",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "similarGroups": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/api/consolidation/similar-document-types": {
+      "get": {
+        "summary": "Find similar document types in the system",
+        "description": "Find similar document types based on name similarity to help with document type consolidation.\nThis endpoint uses Levenshtein distance algorithm to identify potentially duplicated document types.\n",
+        "tags": [
+          "Metadata",
+          "API"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "threshold",
+            "schema": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.7
+            },
+            "description": "Similarity threshold (0-1), higher values require greater similarity"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of similar document type groups",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "similarGroups": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "items": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/api/consolidation/consolidate-tags": {
+      "post": {
+        "summary": "Consolidate similar tags",
+        "description": "Consolidate similar tags by redirecting all documents using tags-to-merge to the primary tag.\n",
+        "tags": [
+          "Metadata",
+          "API"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "primaryTagId",
+                  "tagsToMerge"
+                ],
+                "properties": {
+                  "primaryTagId": {
+                    "type": "integer",
+                    "description": "ID of the primary tag to keep"
+                  },
+                  "tagsToMerge": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "description": "Array of tag IDs to merge into the primary tag"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Consolidation results"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/api/consolidation/consolidate-correspondents": {
+      "post": {
+        "summary": "Consolidate similar correspondents",
+        "description": "Consolidate similar correspondents by redirecting all documents using correspondents-to-merge to the primary correspondent.\n",
+        "tags": [
+          "Metadata",
+          "API"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "primaryCorrespondentId",
+                  "correspondentsToMerge"
+                ],
+                "properties": {
+                  "primaryCorrespondentId": {
+                    "type": "integer",
+                    "description": "ID of the primary correspondent to keep"
+                  },
+                  "correspondentsToMerge": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "description": "Array of correspondent IDs to merge into the primary correspondent"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Consolidation results"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/api/consolidation/consolidate-document-types": {
+      "post": {
+        "summary": "Consolidate similar document types",
+        "description": "Consolidate similar document types by redirecting all documents using document-types-to-merge to the primary document type.\n",
+        "tags": [
+          "Metadata",
+          "API"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "primaryDocumentTypeId",
+                  "documentTypesToMerge"
+                ],
+                "properties": {
+                  "primaryDocumentTypeId": {
+                    "type": "integer",
+                    "description": "ID of the primary document type to keep"
+                  },
+                  "documentTypesToMerge": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "description": "Array of document type IDs to merge into the primary document type"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Consolidation results"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/api/summary/generate/{documentId}": {
+      "post": {
+        "summary": "Generate and save a document summary",
+        "description": "Generate a summary for the specified document and save it to the Notes field in PaperlessNGX.\n",
+        "tags": [
+          "Documents",
+          "API"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "documentId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "ID of the document to summarize"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Summary generation results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "documentId": {
+                      "type": "integer",
+                      "description": "ID of the processed document"
+                    },
+                    "title": {
+                      "type": "string",
+                      "description": "Title of the document"
+                    },
+                    "summary": {
+                      "type": "string",
+                      "description": "Generated summary"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Document not found"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/api/summary/batch": {
+      "post": {
+        "summary": "Generate summaries for multiple documents",
+        "description": "Generate summaries for multiple documents and save them to the Notes field in PaperlessNGX.\n",
+        "tags": [
+          "Documents",
+          "API"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "documentIds"
+                ],
+                "properties": {
+                  "documentIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "description": "Array of document IDs to process"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Batch processing results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "processed": {
+                      "type": "integer",
+                      "description": "Number of successfully processed documents"
+                    },
+                    "failed": {
+                      "type": "integer",
+                      "description": "Number of documents that failed processing"
+                    },
+                    "details": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/consolidation": {
+      "get": {
+        "summary": "Render the metadata consolidation tool page",
+        "description": "Provides a UI for comparing and consolidating similar tags, correspondents, and document types.\n",
+        "tags": [
+          "Navigation",
+          "Metadata"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metadata consolidation tool page rendered successfully"
+          },
+          "401": {
+            "description": "Unauthorized - user not authenticated"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
+    "/summaries": {
+      "get": {
+        "summary": "Render the document summaries tool page",
+        "description": "Provides a UI for generating and managing AI summaries of documents.\n",
+        "tags": [
+          "Navigation",
+          "Documents"
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Document summaries tool page rendered successfully"
+          },
+          "401": {
+            "description": "Unauthorized - user not authenticated"
+          },
+          "500": {
+            "description": "Server error"
           }
         }
       }
