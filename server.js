@@ -1,15 +1,16 @@
+const cookieParser = require('cookie-parser');
 const express = require('express');
 const cron = require('node-cron');
+const setupRoutes = require('./routes/setup');
 const path = require('path');
 const fs = require('fs').promises;
 const config = require('./config/config');
+const setupService = require('./services/setupService');
 const paperlessService = require('./services/paperlessService');
 const AIServiceFactory = require('./services/aiServiceFactory');
 const documentModel = require('./models/document');
-const setupService = require('./services/setupService');
-const setupRoutes = require('./routes/setup');
+const tagMergerService = require('./services/tagMergerService');
 const cors = require('cors');
-const cookieParser = require('cookie-parser');
 const Logger = require('./services/loggerService');
 const { max } = require('date-fns');
 const swaggerUi = require('swagger-ui-express');
@@ -501,6 +502,69 @@ app.get('/', async (req, res) => {
  *                   example: "Application setup not completed"
  *                   description: Detailed error message
  */
+/**
+ * @swagger
+ * /api/tags/merge:
+ *   post:
+ *     summary: Merge similar tags
+ *     description: |
+ *       Groups similar tags based on name similarity and merges them,
+ *       keeping the tag with the highest document count as the target.
+ *     tags: [Tags]
+ *     parameters:
+ *       - in: query
+ *         name: similarity_threshold
+ *         schema:
+ *           type: number
+ *           minimum: 0
+ *           maximum: 1
+ *           default: 0.8
+ *         description: Threshold for considering tags similar (0.0 to 1.0)
+ *     responses:
+ *       200:
+ *         description: Tags merged successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 mergeCount:
+ *                   type: number
+ *                   description: Number of tags that were merged
+ *                 mergeDetails:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                   description: Details of each merge operation
+ *       500:
+ *         description: Error occurred while merging tags
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+app.post('/api/tags/merge', async (req, res) => {
+  try {
+    const similarityThreshold = parseFloat(req.query.similarity_threshold) || 0.8;
+    if (similarityThreshold < 0 || similarityThreshold > 1) {
+      return res.status(400).json({
+        error: 'similarity_threshold must be between 0 and 1'
+      });
+    }
+
+    tagMergerService.similarityThreshold = similarityThreshold;
+    const { mergeCount, mergeDetails } = await tagMergerService.processAndMergeTags();
+    res.json({ mergeCount, mergeDetails });
+  } catch (error) {
+    console.error('Error merging tags:', error);
+    res.status(500).json({
+      error: 'Failed to merge tags',
+      details: error.message
+    });
+  }
+});
+
+// Rest of the code
 app.get('/health', async (req, res) => {
   try {
     const isConfigured = await setupService.isConfigured();

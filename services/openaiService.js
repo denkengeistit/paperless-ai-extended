@@ -227,7 +227,7 @@ class OpenAIService {
       }
       
       if (typeof parsedResponse.correspondent !== 'string' || !parsedResponse.correspondent.trim()) {
-        throw new Error('Invalid response: correspondent must be a non-empty string');
+        parsedResponse.correspondent = null;
       }
       
       if (typeof parsedResponse.title !== 'string' || !parsedResponse.title.trim()) {
@@ -239,7 +239,7 @@ class OpenAIService {
       }
       
       console.log('[DEBUG] Document date from AI:', parsedResponse.document_date);
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(parsedResponse.document_date)) {
+      if (parsedResponse.document_date !== 'YYYY-MM-DD' && !/^\d{4}-\d{2}-\d{2}$/.test(parsedResponse.document_date)) {
         throw new Error(`Invalid response: document_date must be in YYYY-MM-DD format, got: ${parsedResponse.document_date}`);
       }
       

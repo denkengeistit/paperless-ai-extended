@@ -641,6 +641,63 @@
         }
       }
     },
+    "/api/tags/merge": {
+      "post": {
+        "summary": "Merge similar tags",
+        "description": "Groups similar tags based on name similarity and merges them,\nkeeping the tag with the highest document count as the target.\n",
+        "tags": [
+          "Tags"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "similarity_threshold",
+            "schema": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.8
+            },
+            "description": "Threshold for considering tags similar (0.0 to 1.0)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tags merged successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "mergeCount": {
+                      "type": "number",
+                      "description": "Number of tags that were merged"
+                    },
+                    "mergeDetails": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Details of each merge operation"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error occurred while merging tags",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/login": {
       "get": {
         "summary": "Render login page or redirect to setup if no users exist",
