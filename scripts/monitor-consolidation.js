@@ -1,5 +1,6 @@
 // scripts/monitor-consolidation.js
-const consolidationService = require('../services/consolidationService');
+const EnhancedConsolidationService = require('../services/enhanced-consolidation-service');
+const consolidationService = new EnhancedConsolidationService(0.8, 1000);
 
 /**
  * Monitor performance of the consolidation service

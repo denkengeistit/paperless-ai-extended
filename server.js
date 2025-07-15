@@ -9,12 +9,13 @@ const setupService = require('./services/setupService');
 const paperlessService = require('./services/paperlessService');
 const AIServiceFactory = require('./services/aiServiceFactory');
 const documentModel = require('./models/document');
-const tagMergerService = require('./services/tagMergerService');
 const cors = require('cors');
 const Logger = require('./services/loggerService');
 const { max } = require('date-fns');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./swagger');
+const EnhancedConsolidationService = require('./services/enhanced-consolidation-service');
+const consolidationService = new EnhancedConsolidationService(0.8, 1000);
 
 const htmlLogger = new Logger({
   logFile: 'logs.html',
@@ -596,7 +597,6 @@ app.post('/api/tags/merge', async (req, res) => {
     }
 
     // Use the more comprehensive consolidation service instead
-    const consolidationService = require('./services/consolidationService');
     console.log('[DEBUG] Starting tag consolidation with threshold:', similarityThreshold);
     const result = await consolidationService.processAndMergeTags(similarityThreshold);
     res.json(result);

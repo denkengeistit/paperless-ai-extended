@@ -1,5 +1,6 @@
 // utils/batch-processor.js
-const consolidationService = require('../services/consolidationService');
+const EnhancedConsolidationService = require('../services/enhanced-consolidation-service');
+const consolidationService = new EnhancedConsolidationService(0.8, 1000);
 
 /**
  * Utility for batch processing document updates
