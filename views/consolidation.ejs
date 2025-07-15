@@ -142,13 +142,24 @@
                 const threshold = $('#tagSimilarityThreshold').val();
                 $('#similarTagsResults').html('<div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>');
                 
-                $.get(`/api/consolidation/similar-tags?threshold=${threshold}`)
-                    .done(function(data) {
+                console.log('Making API request to find similar tags with threshold:', threshold);
+                
+                $.ajax({
+                    url: `/api/consolidation/similar-tags?threshold=${threshold}`,
+                    type: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('jwt')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    success: function(data) {
+                        console.log('API response success:', data);
                         displaySimilarItems(data.similarGroups, '#similarTagsResults', 'tag');
-                    })
-                    .fail(function(error) {
-                        $('#similarTagsResults').html(`<div class="alert alert-danger">Error: ${error.responseJSON?.error || 'Failed to retrieve similar tags'}</div>`);
-                    });
+                    },
+                    error: function(error) {
+                        console.error('API response error:', error);
+                        $('#similarTagsResults').html(`<div class="alert alert-danger">Error: ${error.responseJSON?.error || error.statusText || 'Failed to retrieve similar tags'}</div>`);
+                    }
+                });
             });
 
             // Find similar correspondents
@@ -156,13 +167,24 @@
                 const threshold = $('#correspondentSimilarityThreshold').val();
                 $('#similarCorrespondentsResults').html('<div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>');
                 
-                $.get(`/api/consolidation/similar-correspondents?threshold=${threshold}`)
-                    .done(function(data) {
+                console.log('Making API request to find similar correspondents with threshold:', threshold);
+                
+                $.ajax({
+                    url: `/api/consolidation/similar-correspondents?threshold=${threshold}`,
+                    type: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('jwt')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    success: function(data) {
+                        console.log('API response success:', data);
                         displaySimilarItems(data.similarGroups, '#similarCorrespondentsResults', 'correspondent');
-                    })
-                    .fail(function(error) {
-                        $('#similarCorrespondentsResults').html(`<div class="alert alert-danger">Error: ${error.responseJSON?.error || 'Failed to retrieve similar correspondents'}</div>`);
-                    });
+                    },
+                    error: function(error) {
+                        console.error('API response error:', error);
+                        $('#similarCorrespondentsResults').html(`<div class="alert alert-danger">Error: ${error.responseJSON?.error || error.statusText || 'Failed to retrieve similar correspondents'}</div>`);
+                    }
+                });
             });
 
             // Find similar document types
@@ -170,13 +192,24 @@
                 const threshold = $('#documentTypeSimilarityThreshold').val();
                 $('#similarDocumentTypesResults').html('<div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>');
                 
-                $.get(`/api/consolidation/similar-document-types?threshold=${threshold}`)
-                    .done(function(data) {
+                console.log('Making API request to find similar document types with threshold:', threshold);
+                
+                $.ajax({
+                    url: `/api/consolidation/similar-document-types?threshold=${threshold}`,
+                    type: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('jwt')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    success: function(data) {
+                        console.log('API response success:', data);
                         displaySimilarItems(data.similarGroups, '#similarDocumentTypesResults', 'documentType');
-                    })
-                    .fail(function(error) {
-                        $('#similarDocumentTypesResults').html(`<div class="alert alert-danger">Error: ${error.responseJSON?.error || 'Failed to retrieve similar document types'}</div>`);
-                    });
+                    },
+                    error: function(error) {
+                        console.error('API response error:', error);
+                        $('#similarDocumentTypesResults').html(`<div class="alert alert-danger">Error: ${error.responseJSON?.error || error.statusText || 'Failed to retrieve similar document types'}</div>`);
+                    }
+                });
             });
 
             // Handle consolidation
@@ -230,6 +263,10 @@
                     url: endpoint,
                     type: 'POST',
                     contentType: 'application/json',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('jwt')}`,
+                        'Content-Type': 'application/json'
+                    },
                     data: JSON.stringify(data),
                     success: function(response) {
                         $group.html(`

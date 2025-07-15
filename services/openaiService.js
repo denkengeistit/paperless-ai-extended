@@ -203,6 +203,36 @@ class OpenAIService {
       let jsonContent = response.choices[0].message.content;
       jsonContent = jsonContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
+      // Try to locate JSON content in the response if it's not properly formatted
+      if (!jsonContent.startsWith('{') && !jsonContent.startsWith('[')) {
+        console.log('[DEBUG] Response not in JSON format, attempting to extract JSON...');
+        // Try to find JSON pattern between curly braces
+        const jsonMatch = jsonContent.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          console.log('[DEBUG] Found JSON-like content in response');
+          jsonContent = jsonMatch[0];
+        } else {
+        console.error('[ERROR] Could not extract JSON from response: ' + jsonContent); // Log full content for debugging
+          // Create a default response with a fixed title indicating error
+          return { 
+            document: {
+              title: "Error: Invalid JSON Response",
+              correspondent: null,
+              tags: ["untagged", "error"],
+              document_type: "Document",
+              document_date: new Date().toISOString().split('T')[0],
+              language: "en"
+            },
+            metrics: {
+              promptTokens: response.usage.prompt_tokens,
+              completionTokens: response.usage.completion_tokens,
+              totalTokens: response.usage.total_tokens
+            },
+            truncated: false
+          };
+        }
+      }
+
       let parsedResponse;
       try {
         parsedResponse = JSON.parse(jsonContent);
@@ -210,7 +240,25 @@ class OpenAIService {
         console.log('[DEBUG] Parsed response:', parsedResponse);
       } catch (error) {
         console.error('Failed to parse JSON response:', error);
-        throw new Error('Invalid JSON response from API');
+        console.log('[DEBUG] Attempting to create default response from non-JSON content');
+        console.log('[DEBUG] Non-JSON content:', jsonContent);
+        // Create a default response with a fixed title indicating error
+        return { 
+          document: {
+            title: "Error: Invalid JSON Response",
+            correspondent: null,
+            tags: ["untagged", "error"],
+            document_type: "Document",
+            document_date: new Date().toISOString().split('T')[0],
+            language: "en"
+          },
+          metrics: {
+            promptTokens: response.usage.prompt_tokens,
+            completionTokens: response.usage.completion_tokens,
+            totalTokens: response.usage.total_tokens
+          },
+          truncated: false
+        };
       }
 
       // Validate response structure
@@ -222,11 +270,15 @@ class OpenAIService {
         throw new Error('Invalid response: tags must be an array');
       }
       
+      // If no tags are provided, add a fallback tag instead of failing
       if (parsedResponse.tags.length === 0) {
-        throw new Error('Invalid response: tags array must contain at least one tag');
+        console.log('[WARN] No tags provided by AI, adding fallback "untagged" tag');
+        parsedResponse.tags = ["untagged"];
       }
       
+      // Check if correspondent is invalid or empty, set to null if so
       if (typeof parsedResponse.correspondent !== 'string' || !parsedResponse.correspondent.trim()) {
+        console.log('[WARN] No correspondent provided by AI, setting to null');
         parsedResponse.correspondent = null;
       }
       
@@ -240,7 +292,8 @@ class OpenAIService {
       
       console.log('[DEBUG] Document date from AI:', parsedResponse.document_date);
       if (parsedResponse.document_date !== 'YYYY-MM-DD' && !/^\d{4}-\d{2}-\d{2}$/.test(parsedResponse.document_date)) {
-        throw new Error(`Invalid response: document_date must be in YYYY-MM-DD format, got: ${parsedResponse.document_date}`);
+        console.log(`[WARN] Invalid document_date format: ${parsedResponse.document_date}, defaulting to today's date`);
+        parsedResponse.document_date = new Date().toISOString().split('T')[0];
       }
       
       if (!/^[a-z]{2}(-[A-Z]{2})?$/.test(parsedResponse.language)) {
@@ -352,12 +405,60 @@ class OpenAIService {
       let jsonContent = response.choices[0].message.content;
       jsonContent = jsonContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
+      // Try to locate JSON content in the response if it's not properly formatted
+      if (!jsonContent.startsWith('{') && !jsonContent.startsWith('[')) {
+        console.log('[DEBUG] Response not in JSON format, attempting to extract JSON...');
+        // Try to find JSON pattern between curly braces
+        const jsonMatch = jsonContent.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          console.log('[DEBUG] Found JSON-like content in response');
+          jsonContent = jsonMatch[0];
+        } else {
+        console.error('[ERROR] Could not extract JSON from response: ' + jsonContent); // Log full content for debugging
+          // Create a default response with a fixed title indicating error
+          return { 
+            document: {
+              title: "Error: Invalid JSON Response",
+              correspondent: null,
+              tags: ["untagged", "error"],
+              document_type: "Document",
+              document_date: new Date().toISOString().split('T')[0],
+              language: "en"
+            },
+            metrics: {
+              promptTokens: response.usage.prompt_tokens,
+              completionTokens: response.usage.completion_tokens,
+              totalTokens: response.usage.total_tokens
+            },
+            truncated: false
+          };
+        }
+      }
+
       let parsedResponse;
       try {
         parsedResponse = JSON.parse(jsonContent);
       } catch (error) {
         console.error('Failed to parse JSON response:', error);
-        throw new Error('Invalid JSON response from API');
+        console.log('[DEBUG] Attempting to create default response from non-JSON content');
+        console.log('[DEBUG] Non-JSON content:', jsonContent);
+        // Create a default response with a fixed title indicating error
+        return { 
+          document: {
+            title: "Error: Invalid JSON Response",
+            correspondent: null,
+            tags: ["untagged", "error"],
+            document_type: "Document",
+            document_date: new Date().toISOString().split('T')[0],
+            language: "en"
+          },
+          metrics: {
+            promptTokens: response.usage.prompt_tokens,
+            completionTokens: response.usage.completion_tokens,
+            totalTokens: response.usage.total_tokens
+          },
+          truncated: false
+        };
       }
 
       // Validate response structure
@@ -369,12 +470,15 @@ class OpenAIService {
         throw new Error('Invalid response: tags must be an array');
       }
       
+      // If no tags are provided, add a fallback tag instead of failing
       if (parsedResponse.tags.length === 0) {
-        throw new Error('Invalid response: tags array must contain at least one tag');
+        console.log('[WARN] No tags provided by AI in playground, adding fallback "untagged" tag');
+        parsedResponse.tags = ["untagged"];
       }
       
       if (typeof parsedResponse.correspondent !== 'string' || !parsedResponse.correspondent.trim()) {
-        throw new Error('Invalid response: correspondent must be a non-empty string');
+        console.log('[WARN] No correspondent provided by AI in playground, setting to null');
+        parsedResponse.correspondent = null;
       }
       
       if (typeof parsedResponse.title !== 'string' || !parsedResponse.title.trim()) {
@@ -386,7 +490,8 @@ class OpenAIService {
       }
       
       if (!/^\d{4}-\d{2}-\d{2}$/.test(parsedResponse.document_date)) {
-        throw new Error('Invalid response: document_date must be in YYYY-MM-DD format');
+        console.log(`[WARN] Invalid document_date format in playground: ${parsedResponse.document_date}, defaulting to today's date`);
+        parsedResponse.document_date = new Date().toISOString().split('T')[0];
       }
       
       if (!/^[a-z]{2}(-[A-Z]{2})?$/.test(parsedResponse.language)) {

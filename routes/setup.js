@@ -1554,7 +1554,14 @@ async function processDocument(doc, existingTags, existingCorrespondentList, own
   ]);
 
   if (!content || !content.length >= 10) {
-    console.log(`[DEBUG] Document ${doc.id} has no content, skipping analysis`);
+    console.log(`[DEBUG] Document ${doc.id} has no content, adding 'No Content' tag`);
+    // Add No Content tag to the document
+    const { tagIds } = await paperlessService.processTags(['No Content']);
+    if (tagIds.length > 0) {
+      await paperlessService.updateDocument(doc.id, { tags: tagIds });
+      await documentModel.setProcessingStatus(doc.id, doc.title, 'complete');
+      console.log(`[DEBUG] Added 'No Content' tag to document ${doc.id}`);
+    }
     return null;
   }
 
@@ -1576,14 +1583,15 @@ async function processDocument(doc, existingTags, existingCorrespondentList, own
   if (analysis.error) {
     console.warn(`[WARN] AI analysis error for document ${doc.id}: ${analysis.error}`);
     
-    // If the error is about missing tags, provide a default tag
-    if (analysis.error.includes('tags array must contain at least one tag')) {
-      console.log('[DEBUG] Providing default tag for document');
+    // Handle common AI response errors with default values
+    if (analysis.error.includes('tags array must contain at least one tag') || 
+        analysis.error.includes('title must be a non-empty string')) {
+      console.log('[DEBUG] Providing default values for document');
       analysis.document = {
         ...analysis.document,
-        tags: ['Uncategorized'],
+        tags: analysis.document.tags?.length > 0 ? analysis.document.tags : ['Uncategorized'],
         correspondent: analysis.document.correspondent || 'Unknown',
-        title: analysis.document.title || doc.title,
+        title: analysis.document.title || doc.title || `Document ${doc.id}`,
         document_date: analysis.document.document_date || '1990-01-01',
         language: analysis.document.language || 'en',
         document_type: analysis.document.document_type || 'Document'

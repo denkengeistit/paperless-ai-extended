@@ -3,7 +3,8 @@ const paperlessService = require('./paperlessService');
 const config = require('../config/config');
 
 class ConsolidationService {
-  constructor() {
+  constructor(similarityThreshold = 0.8) {
+    this.similarityThreshold = similarityThreshold;
     this.initialize();
   }
 
@@ -16,7 +17,7 @@ class ConsolidationService {
    * @param {number} similarityThreshold - Threshold for similarity (0-1)
    * @returns {Promise<Array>} - Array of similar tag groups
    */
-  async findSimilarTags(similarityThreshold = 0.7) {
+  async findSimilarTags(similarityThreshold = this.similarityThreshold) {
     try {
       const tags = await paperlessService.getTags();
       return this.findSimilarEntities(tags, similarityThreshold);
@@ -31,7 +32,7 @@ class ConsolidationService {
    * @param {number} similarityThreshold - Threshold for similarity (0-1)
    * @returns {Promise<Array>} - Array of similar correspondent groups
    */
-  async findSimilarCorrespondents(similarityThreshold = 0.7) {
+  async findSimilarCorrespondents(similarityThreshold = this.similarityThreshold) {
     try {
       const correspondents = await paperlessService.listCorrespondentsNames();
       return this.findSimilarEntities(correspondents, similarityThreshold);
@@ -46,7 +47,7 @@ class ConsolidationService {
    * @param {number} similarityThreshold - Threshold for similarity (0-1)
    * @returns {Promise<Array>} - Array of similar document type groups
    */
-  async findSimilarDocumentTypes(similarityThreshold = 0.7) {
+  async findSimilarDocumentTypes(similarityThreshold = this.similarityThreshold) {
     try {
       // Fetch document types
       const response = await paperlessService.client.get('/document_types/');
@@ -265,6 +266,95 @@ class ConsolidationService {
       };
     }
   }
+  /**
+   * Sort groups by total document count in descending order
+   * @param {Array} groups - List of tag groups
+   * @returns {Array} Sorted list of tag groups
+   */
+  sortGroupsByDocCount(groups) {
+    return groups.sort((a, b) => {
+      const countA = a.reduce((sum, tag) => sum + (tag.document_count || 0), 0);
+      const countB = b.reduce((sum, tag) => sum + (tag.document_count || 0), 0);
+      return countB - countA;
+    });
+  }
+
+  /**
+   * Merge source tags into target tag
+   * @param {number} targetTagId - ID of the tag to merge into
+   * @param {Array<number>} sourceTagIds - List of tag IDs to merge from
+   * @returns {Promise<boolean>} Success status
+   */
+  async mergeTags(targetTagId, sourceTagIds) {
+    try {
+      for (const sourceId of sourceTagIds) {
+        const documents = await paperlessService.getDocuments({ tags__id: sourceId });
+        for (const doc of documents.results) {
+          const tags = doc.tags.filter(id => id !== sourceId);
+          if (!tags.includes(targetTagId)) {
+            tags.push(targetTagId);
+          }
+          await paperlessService.updateDocument(doc.id, { tags });
+        }
+        await paperlessService.deleteTag(sourceId);
+      }
+      return true;
+    } catch (error) {
+      console.error('Error during tag merge:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Main function to process all tags and perform merging
+   * @param {number} [threshold] - Optional similarity threshold override
+   * @returns {Promise<{mergeCount: number, mergeDetails: Array<string>}>}
+   */
+  async processAndMergeTags(threshold) {
+    try {
+      // Use the provided threshold or fall back to instance default
+      const similarityThreshold = threshold !== undefined ? threshold : this.similarityThreshold;
+      
+      const tagsResponse = await paperlessService.getTags();
+      const tags = tagsResponse.results;
+
+      const groups = this.findSimilarEntities(tags, similarityThreshold);
+      const sortedGroups = this.sortGroupsByDocCount(groups);
+
+      let mergeCount = 0;
+      const mergeDetails = [];
+
+      for (const group of sortedGroups) {
+        if (group.length > 1) {
+          const targetTag = group.reduce((max, tag) => 
+            (tag.document_count || 0) > (max.document_count || 0) ? tag : max
+          , group[0]);
+          const sourceTags = group.filter(tag => tag.id !== targetTag.id);
+
+          const success = await this.mergeTags(
+            targetTag.id,
+            sourceTags.map(tag => tag.id)
+          );
+
+          if (success) {
+            mergeCount += sourceTags.length;
+            mergeDetails.push(
+              `Merged tags ${sourceTags.map(t => t.name).join(', ')} into ${targetTag.name}`
+            );
+          }
+        }
+      }
+
+      return { mergeCount, mergeDetails };
+    } catch (error) {
+      console.error('[ERROR] processing and merging tags:', error.message);
+      return { mergeCount: 0, mergeDetails: [], error: error.message };
+    }
+  }
 }
 
-module.exports = new ConsolidationService();
+// Import the enhanced service class
+const EnhancedConsolidationService = require('./enhanced-consolidation-service');
+
+// Create and export an instance with standard settings
+module.exports = new EnhancedConsolidationService(0.8, 1000);

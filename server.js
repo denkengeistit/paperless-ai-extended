@@ -198,8 +198,15 @@ async function processDocument(doc, existingTags, existingCorrespondentList, own
     paperlessService.getDocument(doc.id)
   ]);
 
-  if (!content || !content.length >= 10) {
-    console.log(`[DEBUG] Document ${doc.id} has no content, skipping analysis`);
+  if (!content || content.length < 10) {
+    console.log(`[DEBUG] Document ${doc.id} has no content, adding 'No Content' tag`);
+    // Add No Content tag to the document
+    const { tagIds } = await paperlessService.processTags(['No Content']);
+    if (tagIds.length > 0) {
+      await paperlessService.updateDocument(doc.id, { tags: tagIds });
+      await documentModel.setProcessingStatus(doc.id, doc.title, 'complete');
+      console.log(`[DEBUG] Added 'No Content' tag to document ${doc.id}`);
+    }
     return null;
   }
 
@@ -211,7 +218,25 @@ async function processDocument(doc, existingTags, existingCorrespondentList, own
   const analysis = await aiService.analyzeDocument(content, existingTags, existingCorrespondentList, doc.id);
   console.log('Repsonse from AI service:', analysis);
   if (analysis.error) {
-    throw new Error(`[ERROR] Document analysis failed: ${analysis.error}`);
+    console.warn(`[WARN] AI analysis error for document ${doc.id}: ${analysis.error}`);
+    
+    // Handle common AI response errors with default values
+    if (analysis.error.includes('tags array must contain at least one tag') || 
+        analysis.error.includes('title must be a non-empty string')) {
+      console.log('[DEBUG] Providing default values for document');
+      analysis.document = {
+        ...analysis.document,
+        tags: analysis.document.tags?.length > 0 ? analysis.document.tags : ['Uncategorized'],
+        correspondent: analysis.document.correspondent || 'Unknown',
+        title: analysis.document.title || doc.title || `Document ${doc.id}`,
+        document_date: analysis.document.document_date || '1990-01-01',
+        language: analysis.document.language || 'en',
+        document_type: analysis.document.document_type || 'Document'
+      };
+      analysis.error = null;
+    } else {
+      throw new Error(`[ERROR] Document analysis failed: ${analysis.error}`);
+    }
   }
   await documentModel.setProcessingStatus(doc.id, doc.title, 'complete');
   return { analysis, originalData };
@@ -328,29 +353,45 @@ async function buildUpdateData(analysis, doc) {
 async function saveDocumentChanges(docId, updateData, analysis, originalData) {
   const { tags: originalTags, correspondent: originalCorrespondent, title: originalTitle } = originalData;
   
-  await Promise.all([
+  // Prepare promises array
+  const promises = [
     documentModel.saveOriginalData(docId, originalTags, originalCorrespondent, originalTitle),
     paperlessService.updateDocument(docId, updateData),
     documentModel.addProcessedDocument(docId, updateData.title),
-    documentModel.addOpenAIMetrics(
-      docId, 
-      analysis.metrics.promptTokens,
-      analysis.metrics.completionTokens,
-      analysis.metrics.totalTokens
-    ),
     documentModel.addToHistory(docId, updateData.tags, updateData.title, analysis.document.correspondent)
-  ]);
+  ];
+  
+  // Only add metrics if they exist
+  if (analysis.metrics) {
+    console.log('[DEBUG] Adding metrics:', analysis.metrics);
+    promises.push(documentModel.addOpenAIMetrics(
+      docId, 
+      analysis.metrics.promptTokens || 0,
+      analysis.metrics.completionTokens || 0,
+      analysis.metrics.totalTokens || 0
+    ));
+  } else {
+    console.log('[DEBUG] No metrics available for document', docId);
+  }
+  
+  await Promise.all(promises);
 }
 
 // Main scanning functions
 async function scanInitial() {
   try {
+    console.log('[DEBUG] Starting initial document scan...');
     const isConfigured = await setupService.isConfigured();
     if (!isConfigured) {
       console.log('[ERROR] Setup not completed. Skipping document scan.');
       return;
     }
-
+    
+    // Ensure tag cache is fully populated before proceeding
+    console.log('[DEBUG] Refreshing tag cache...');
+    await paperlessService.ensureTagCache(true); // Force refresh and wait for completion
+    console.log('[DEBUG] Tag cache refresh complete, proceeding with document scan');
+    
     let [existingTags, documents, ownUserId, existingCorrespondentList] = await Promise.all([
       paperlessService.getTags(),
       paperlessService.getAllDocuments(),
@@ -360,8 +401,10 @@ async function scanInitial() {
     //get existing correspondent list
     existingCorrespondentList = existingCorrespondentList.map(correspondent => correspondent.name);
 
+    console.log(`[DEBUG] Found ${documents.length} documents to process`);
     for (const doc of documents) {
       try {
+        console.log(`[DEBUG] Processing document ${doc.id} (${doc.title})`);
         const result = await processDocument(doc, existingTags, existingCorrespondentList, ownUserId);
         if (!result) continue;
 
@@ -552,9 +595,11 @@ app.post('/api/tags/merge', async (req, res) => {
       });
     }
 
-    tagMergerService.similarityThreshold = similarityThreshold;
-    const { mergeCount, mergeDetails } = await tagMergerService.processAndMergeTags();
-    res.json({ mergeCount, mergeDetails });
+    // Use the more comprehensive consolidation service instead
+    const consolidationService = require('./services/consolidationService');
+    console.log('[DEBUG] Starting tag consolidation with threshold:', similarityThreshold);
+    const result = await consolidationService.processAndMergeTags(similarityThreshold);
+    res.json(result);
   } catch (error) {
     console.error('Error merging tags:', error);
     res.status(500).json({

@@ -15,6 +15,8 @@ class PaperlessService {
     this.tagCacheFile = path.join(process.cwd(), 'cache', 'tag-cache.json');
     this.lastRequestTime = 0;
     this.MIN_REQUEST_INTERVAL = 100; // Minimum 100ms between requests
+    this.tagRefreshInProgress = false;
+    this.tagRefreshPromise = null;
     this.initializeCache();
   }
 
@@ -88,8 +90,25 @@ class PaperlessService {
 
   async ensureTagCache(forceRefresh = false) {
     const now = Date.now();
+    
+    // If a refresh is already in progress, wait for it to complete
+    if (this.tagRefreshInProgress && this.tagRefreshPromise) {
+      console.log('[DEBUG] Tag refresh already in progress, waiting for it to complete...');
+      await this.tagRefreshPromise;
+      return;
+    }
+    
+    // Check if we need to refresh the cache
     if (forceRefresh || this.tagCache.size === 0 || (now - this.lastTagRefresh) > this.CACHE_LIFETIME) {
-      await this.refreshTagCache();
+      // Set up the refresh promise and flag
+      this.tagRefreshInProgress = true;
+      this.tagRefreshPromise = this.refreshTagCache().finally(() => {
+        this.tagRefreshInProgress = false;
+        this.tagRefreshPromise = null;
+      });
+      
+      // Wait for the refresh to complete
+      await this.tagRefreshPromise;
     }
   }
 
